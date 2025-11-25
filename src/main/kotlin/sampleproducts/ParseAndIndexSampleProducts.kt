@@ -1,18 +1,10 @@
 package sampleproducts
 
-import IndexProducts
 import com.opencsv.CSVReader
 import java.io.FileReader
 
 import kotlinx.serialization.Serializable
-import org.apache.solr.client.solrj.SolrClient
-import org.apache.solr.client.solrj.impl.Http2SolrClient
-import org.apache.solr.client.solrj.request.UpdateRequest
-import org.apache.solr.common.SolrInputDocument
 import solr.SolrIndexProducts
-import java.util.concurrent.ForkJoinPool
-import kotlin.time.Duration
-import kotlin.time.measureTime
 
 @Serializable
 data class Product(
@@ -37,8 +29,8 @@ fun main() {
 
     val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products.csv"
 
-    val start = 799 * 1000;
-    val limit = 1100 * 1000
+    val start = 1099 * 1000;
+    val limit = 1500 * 1000
 
     val t1 = System.currentTimeMillis()
     var counter = 0

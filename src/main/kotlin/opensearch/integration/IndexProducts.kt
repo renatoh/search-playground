@@ -4,11 +4,9 @@ import org.opensearch.client.json.jackson.JacksonJsonpMapper
 import org.opensearch.client.opensearch.OpenSearchClient
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder
 
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.apache.hc.core5.http.HttpHost
 import org.opensearch.client.opensearch.core.BulkRequest
 import org.opensearch.client.opensearch.core.bulk.BulkOperation
-import org.opensearch.client.opensearch.indices.CreateIndexRequest
 import sampleproducts.Product
 
 

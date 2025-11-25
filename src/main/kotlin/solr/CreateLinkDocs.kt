@@ -2,12 +2,9 @@ package solr
 
 
 import org.apache.solr.client.solrj.SolrClient
-import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient
-import org.apache.solr.client.solrj.impl.CloudSolrClient
 import org.apache.solr.client.solrj.impl.Http2SolrClient
 import org.apache.solr.client.solrj.request.UpdateRequest
 import org.apache.solr.common.SolrInputDocument
-import java.util.*
 import java.util.concurrent.ForkJoinPool
 import kotlin.math.round
 import kotlin.random.Random
@@ -36,7 +33,7 @@ fun main() {
     val c = 0
 
     val pool = ForkJoinPool(16)
-    val solrClient: org.apache.solr.client.solrj.SolrClient = Http2SolrClient.Builder(solrUrl)
+    val solrClient: SolrClient = Http2SolrClient.Builder(solrUrl)
         .build()
 /*        val solrClient: SolrClient = CloudSolrClient.Builder(Collections.singletonList(zkHost), Optional.empty()).withDefaultCollection(collection)
             .build()*/
@@ -74,7 +71,7 @@ private fun randomPrice(): Double {
 
 
 private fun addDocsToCollection(
-    solrClient: org.apache.solr.client.solrj.SolrClient,
+    solrClient: SolrClient,
     docs: List<SolrInputDocument>,
     collection: String,
     startTime : Long

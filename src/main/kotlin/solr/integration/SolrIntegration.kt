@@ -1,5 +1,6 @@
 package solr.integration
 
+import org.apache.solr.client.solrj.SolrClient
 import org.apache.solr.client.solrj.SolrQuery
 import org.apache.solr.client.solrj.impl.Http2SolrClient
 import sampleproducts.Product
@@ -9,7 +10,7 @@ class SolrIntegration {
     fun searchUserInputAnd(userInput : String): List<Product> {
 
         val solrUrl = "http://linux:8983/solr/"
-        val solrClient: org.apache.solr.client.solrj.SolrClient = Http2SolrClient.Builder(solrUrl)
+        val solrClient: SolrClient = Http2SolrClient.Builder(solrUrl)
             .build()
 
         val query = SolrQuery()

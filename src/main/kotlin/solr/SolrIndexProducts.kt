@@ -31,7 +31,7 @@ class SolrIndexProducts {
     }
     
     private fun addDocsToSolr(
-        solrClient: org.apache.solr.client.solrj.SolrClient,
+        solrClient: SolrClient,
         docs: List<SolrInputDocument>,
         collection: String,
     ) {
