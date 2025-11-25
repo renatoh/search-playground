@@ -1,0 +1,42 @@
+plugins {
+  id 'org.jetbrains.kotlin.jvm' version '2.1.20'
+  id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.25'
+    id("org.openjfx.javafxplugin") version "0.1.0"
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+    
+  testImplementation 'org.jetbrains.kotlin:kotlin-test'
+  implementation("org.opensearch.client:opensearch-java:3.1.0")
+  implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.16.1")
+  implementation("org.apache.solr:solr-solrj:9.6.0")
+  implementation("com.opencsv:opencsv:5.9")
+  implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    
+ 
+     implementation("io.ktor:ktor-client-core:2.3.12")
+     implementation("io.ktor:ktor-client-cio:2.3.12")
+     implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
+     implementation("io.ktor:ktor-serialization-jackson:2.3.12")
+}
+
+test {
+  useJUnitPlatform()
+}
+kotlin {
+  jvmToolchain(21)
+}
+
+javafx {
+    version = "21"
+    modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.graphics' ]
+}
+
+

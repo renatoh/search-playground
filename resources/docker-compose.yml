@@ -1,0 +1,50 @@
+services:
+  solr1:
+    image: solr:9-slim
+    ports:
+      - "8983:8983"
+    networks: [search]
+    environment:
+      ZK_HOST: "zoo:2181"
+      SOLR_JAVA_MEM: "-Xms4g -Xmx4g"
+      GC_TUNE: "-XX:+UseZGC"
+    depends_on: [zoo]
+    volumes:
+      - solr1_data:/var/solr
+
+  solr2:
+    image: solr:9-slim
+    ports:
+      - "8984:8983"
+    networks: [search]
+    environment:
+      ZK_HOST: "zoo:2181"
+      SOLR_JAVA_MEM: "-Xms4g -Xmx4g"
+      GC_TUNE: "-XX:+UseZGC"
+    depends_on: [zoo]
+    volumes:
+      - solr2_data:/var/solr
+
+
+  zoo:
+    image: zookeeper:3.9
+    ports:
+      - "2181:2181"   # client port (required)
+      - "8080:8080"   # admin server (optional; useful for health/info)
+    networks: [search]
+    environment:      
+      ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok"
+    volumes:
+      - zk_data:/data
+      - zk_datalog:/datalog
+
+networks:
+  search:
+    driver: bridge
+
+volumes:
+  solr1_data:
+  solr2_data:
+  zk_data:
+  zk_datalog:
+
