@@ -3,11 +3,13 @@ package solr.integration
 import org.apache.solr.client.solrj.SolrClient
 import org.apache.solr.client.solrj.SolrQuery
 import org.apache.solr.client.solrj.impl.Http2SolrClient
+import org.apache.solr.client.solrj.response.QueryResponse
 import sampleproducts.Product
+
 
 class SolrIntegration {
 
-    fun searchUserInputAnd(userInput : String): List<Product> {
+    fun searchUserInputAnd(userInput : String,  collectionName : String): List<Product> {
 
         val solrUrl = "http://linux:8983/solr/"
         val solrClient: SolrClient = Http2SolrClient.Builder(solrUrl)
@@ -15,10 +17,25 @@ class SolrIntegration {
 
         val query = SolrQuery()
         
-//        query.set("q", userInput)
-//        query.set("df","title_txt_en")
-//        query.set("fl", "*,score")
+        query.set("q", userInput)
+        query.set("df","title_txt_en")
+        query.set("fl", "*,score")
 
+        // optional: rows, start, fields, etc.
+        query.rows = 50
+        query.start = 0
+
+        val response = solrClient.query(collectionName, query)
+
+        return mapResponse(response)
+    }
+    fun hybridSearchUserInputAnd(userInput : String, collectionName : String): List<Product> {
+
+        val solrUrl = "http://linux:8983/solr/"
+        val solrClient: SolrClient = Http2SolrClient.Builder(solrUrl)
+            .build()
+
+        val query = SolrQuery()
         
         query.set("fl", "*,score,vectorScore:query(\$vectorQuery),lexicalScore:query(\$normalisedLexicalQuery)")
         
@@ -27,14 +44,12 @@ class SolrIntegration {
             "{!bool filter=\$retrievalStage must=\$rankingStage}"
         )
 
-        // stages
         query.set(
             "retrievalStage",
             "{!bool should=\$lexicalQuery should=\$vectorQuery}"
         )
         query.set(
             "rankingStage",
-//            "{!func}product(query(\$normalisedLexicalQuery),query(\$vectorQuery))"
             "{!func}sum(query(\$normalisedLexicalQuery),query(\$vectorQuery))"
         )
         query.set(
@@ -56,8 +71,12 @@ class SolrIntegration {
         query.rows = 50
         query.start = 0
 
-        val response = solrClient.query("products", query)
+        val response = solrClient.query(collectionName, query)
 
+        return mapResponse(response)
+    }
+
+    private fun mapResponse(response: QueryResponse): List<Product> {
         return response.results.map { doc ->
             Product(
                 id = (doc["id"] as String).toInt(),
@@ -72,8 +91,9 @@ class SolrIntegration {
                 categoryId_i = (doc["categoryId_i"] as Number).toInt(),
                 bestSeller_b = doc["bestSeller_b"] as Boolean,
                 boughtLastMonth_i = (doc["boughtLastMonth_i"] as Number).toInt(),
-                vectorScore = (doc["vectorScore"] as? Number)?.toFloat(), 
-                lexicalScore = (doc["lexicalScore"] as Number).toFloat()
+                vectorScore = (doc["vectorScore"] as? Number)?.toFloat(),
+                lexicalScore = (doc["lexicalScore"] as? Number)?.toFloat(),
+                score = (doc["score"] as? Number)?.toFloat(),
             );
 
         }

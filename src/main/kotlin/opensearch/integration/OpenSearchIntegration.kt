@@ -41,7 +41,7 @@ class OpenSearchIntegration {
                 q.bool { b ->
                     b.must { must ->
                         must.match { m ->
-                            m.field("title_s")
+                            m.field("title_txt_en")
                                 .query(FieldValue.of(userInput))   
                                 .operator(Operator.And)        
                         }
@@ -52,7 +52,9 @@ class OpenSearchIntegration {
     
         val response = client.search(request, sampleproducts.Product::class.java)
        
-        return response.hits().hits().mapNotNull { it.source() }
+        return response.hits().hits().mapNotNull { it.source().apply { 
+            this?.lexicalScore = it?.score()?.toFloat()?:0.0f} 
+        }
     }
     
     companion object {

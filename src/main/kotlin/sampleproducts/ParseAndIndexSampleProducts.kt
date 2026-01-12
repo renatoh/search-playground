@@ -1,5 +1,6 @@
 package sampleproducts
 
+import IndexProducts
 import com.opencsv.CSVReader
 import java.io.FileReader
 
@@ -21,16 +22,17 @@ data class Product(
     val bestSeller_b: Boolean,
     val boughtLastMonth_i: Int,
     val vectorScore: Float? = null,
-    val lexicalScore: Float? = null
+    var lexicalScore: Float? = null,
+    var score: Float? = null
 )
 
 fun main() {
 
 
-    val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products.csv"
+    val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products_head.csv"
 
-    val start = 1099 * 1000;
-    val limit = 1500 * 1000
+    val start = 0 * 1000;
+    val limit = 150 * 1000
 
     val t1 = System.currentTimeMillis()
     var counter = 0
@@ -41,7 +43,7 @@ fun main() {
 
 
             if (counter < start) {
-                counter++
+                counter++                                                         
                 continue;
             }
 
@@ -80,17 +82,16 @@ fun main() {
     print("number of products: ${products.size}")
 
     // index to OpenSearch
-/*         val indexProducts = IndexProducts();
-        products.chunked(200).forEach { indexProducts.bulkIndexProducts(it) }
-        indexProducts.bulkIndexProducts(products)
-
-        val allProductCodes = products.map { it.categoryId_i }.toSet()
-        println(allProductCodes)*/
+//         val indexProducts = IndexProducts();
+//        products.chunked(200).forEach { indexProducts.bulkIndexProducts(it) }
+//        indexProducts.bulkIndexProducts(products)
+//
+//        val allProductCodes = products.map { it.categoryId_i }.toSet()
+//        println(allProductCodes)
 
 
     val indexer = SolrIndexProducts();
-    
-    val timeTaken = indexer.indexProducts(products)
+    val timeTaken = indexer.indexProducts(products, "products-head-original")
     println("adding docs to solr took:${timeTaken}")
 }
 

@@ -12,7 +12,13 @@ import rerank.ReRankService
 import sampleproducts.Product
 import solr.integration.SolrIntegration
 
+fun main() {
+    Application.launch(ProductTilesApp::class.java)
+}
+
+
 class ProductTilesApp : Application() {
+
 
     private val openSearch = OpenSearchIntegration()
     private val reRankService = ReRankService()
@@ -22,6 +28,9 @@ class ProductTilesApp : Application() {
     private lateinit var tilePane: TilePane
     private lateinit var searchField: TextField
     private lateinit var rerankCheckBox: CheckBox
+    private lateinit var vectorSearch: CheckBox
+    private lateinit var useCustomTrainedModel: CheckBox
+    private lateinit var solrRadio: RadioButton
 
     //toy for 5 years old boy
     //bbq accessories
@@ -29,13 +38,31 @@ class ProductTilesApp : Application() {
 //    game console
     override fun start(primaryStage: Stage) {
         // --- Controls at the top -------------------------------------------------
-        searchField = TextField("bbq").apply {
+        val backendGroup = ToggleGroup()
+
+        solrRadio = RadioButton("Solr").apply {
+            toggleGroup = backendGroup
+            isSelected = true   // default
+        }
+
+        val openSearchRadio = RadioButton("OpenSearch").apply {
+            toggleGroup = backendGroup
+        }
+
+
+        searchField = TextField("bbq accessories").apply {
             promptText = "Search products..."
             prefWidth = 400.0
         }
 
         rerankCheckBox = CheckBox("Use cross-encoder reranking").apply {
-            isSelected = true
+            isSelected = false
+        }
+        vectorSearch = CheckBox("Use Hybrid Search").apply {
+            isSelected = false
+        }
+        useCustomTrainedModel = CheckBox("Use Hybrid Search with Trained Head").apply {
+            isSelected = false
         }
 
         val searchButton = Button("Search").apply {
@@ -47,7 +74,17 @@ class ProductTilesApp : Application() {
         // also allow pressing Enter in the text field
         searchField.setOnAction { runSearch() }
 
-        val topBar = HBox(10.0, Label("Query:"), searchField, searchButton, rerankCheckBox).apply {
+        val topBar = HBox(
+            10.0,
+            Label("Query:"),
+            searchField,
+            searchButton,
+            rerankCheckBox,
+            vectorSearch,
+            useCustomTrainedModel,
+            solrRadio,
+            openSearchRadio
+        ).apply {
             alignment = Pos.CENTER_LEFT
             padding = Insets(10.0)
         }
@@ -79,17 +116,34 @@ class ProductTilesApp : Application() {
         primaryStage.show()
 
         // initial search
-        runSearch()
+//        runSearch()
     }
 
     private fun runSearch() {
         val query = searchField.text.trim()
         if (query.isEmpty()) return
 
-        // 1) search in OpenSearch
-//        var products = openSearch.searchUserInputAnd(query)
 
-        var products = solrIntegration.searchUserInputAnd(query)
+        var products = if (solrRadio.isSelected) {
+            if (vectorSearch.isSelected) {
+                if (useCustomTrainedModel.isSelected) {
+                    solrIntegration.hybridSearchUserInputAnd(query, "products-head")
+                } else {
+                    solrIntegration.hybridSearchUserInputAnd(query, "products-head-original")
+                                     }
+            } else {
+                solrIntegration.searchUserInputAnd(query, "products-head")
+
+            }
+        } else {
+            openSearch.searchUserInputAnd(query)
+        }
+
+        products.forEach { println("${it.code_s}:${it.title_txt_en}") }
+        
+        // 1) search in OpenSearch
+
+//        var products = solrIntegration.searchUserInputAnd(query)
 
         // 2) optional rerank
         if (rerankCheckBox.isSelected) {
@@ -120,14 +174,14 @@ class ProductTilesApp : Application() {
             style = "-fx-font-size: 14px; -fx-font-weight: bold;"
         }
         val scores =
-            Label("lexical-score:" + formatFloat(product.lexicalScore).toString() ).apply {
+            Label("lexical-score:" + formatFloat(product.lexicalScore ?: product.score).toString() ).apply {
                 maxWidth = 80.0
                
                 isWrapText =  true
                 style = "-fx-font-size: 14px; -fx-font-weight: bold;"
             }
         val vectorScore =
-            Label("vector-score:"+formatFloat(product.vectorScore).toString()).apply {
+            Label(if (product.vectorScore != null)  "vector-score:"+(formatFloat(product.vectorScore).toString()) else "").apply {
                 maxWidth = 80.0
                
                 isWrapText =  true
@@ -171,8 +225,4 @@ class ProductTilesApp : Application() {
             }
         }
     }
-}
-
-fun main() {
-    Application.launch(ProductTilesApp::class.java)
 }
