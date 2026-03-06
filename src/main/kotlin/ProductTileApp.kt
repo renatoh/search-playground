@@ -129,10 +129,10 @@ class ProductTilesApp : Application() {
                 if (useCustomTrainedModel.isSelected) {
                     solrIntegration.hybridSearchUserInputAnd(query, "products-head")
                 } else {
-                    solrIntegration.hybridSearchUserInputAnd(query, "products-head-original")
+                    solrIntegration.hybridSearchUserInputAnd(query, "products")
                                      }
             } else {
-                solrIntegration.searchUserInputAnd(query, "products-head")
+                solrIntegration.searchUserInputAnd(query, "products")
 
             }
         } else {

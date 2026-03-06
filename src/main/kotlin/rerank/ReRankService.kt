@@ -7,6 +7,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 
 class ReRankService {
@@ -15,6 +16,7 @@ class ReRankService {
     
     val client = HttpClient.newBuilder()
            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(3))
            .build()
     
     fun rerankByTitle(query: String, products: List<Product>): List<Pair<Product, Double>> {
@@ -25,15 +27,16 @@ class ReRankService {
     
         val requestPayload = RankRequest(
             query = query,
-            documents = docs
+            documents = docs                            
         )
         val body = json.writeValueAsString(requestPayload)
         
-        val request = HttpRequest.newBuilder()
-             .uri(URI.create("http://localhost:8000/rank"))
-             .header("Content-Type", "application/json")
-             .POST(HttpRequest.BodyPublishers.ofString(body))
-             .build()
+val request = HttpRequest.newBuilder()
+    .uri(URI.create("http://localhost:8000/rank"))
+    .header("Content-Type", "application/json; charset=UTF-8")
+    .timeout(Duration.ofSeconds(10))
+    .POST(HttpRequest.BodyPublishers.ofString(body, java.nio.charset.StandardCharsets.UTF_8))
+    .build()
     
         val response = client.send(request, HttpResponse.BodyHandlers.ofString())
     
