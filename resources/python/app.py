@@ -1,40 +1,28 @@
 import json
 import logging
 import os
-import re
 
 import httpx
-import torch
 from fastapi import FastAPI
+from openai import OpenAI
 from pydantic import BaseModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o")
 SOLR_URL = os.getenv("SOLR_URL", "http://linux:8983/solr")
 SOLR_COLLECTION = os.getenv("SOLR_COLLECTION", "products")
 
 app = FastAPI()
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-print(f"Loading model {MODEL_NAME} on {device} ...")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_NAME,
-    torch_dtype=torch.float16,
-).to(device)
-model.eval()
-print("Model loaded.")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "search_products",
-            "description": "Search the product catalog and return matching product titles.",
+            "description": "Search the product catalog and return matching products.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -61,7 +49,7 @@ def search_products(query: str) -> list[dict]:
         "normalisedLexicalQuery": "{!func}scale(query($lexicalQuery),0.1,1)",
         "lexicalQuery": f"{{!type=edismax qf=title_txt_en}}{query}",
         "vectorQuery": f"{{!knn_text_to_vector f=vector_en model=customLocal}}{query}",
-        "rows": 10,
+        "rows": 50,
         "start": 0,
         "wt": "json",
     }
@@ -100,45 +88,7 @@ class SearchResponse(BaseModel):
     answer: str
     tool_calls: list[dict]
     iterations: int
-
-
-# ---- LLM generation ----
-
-def generate(messages: list[dict]) -> str:
-    text = tokenizer.apply_chat_template(
-        messages,
-        tools=TOOLS,
-        tokenize=False,
-        add_generation_prompt=True,
-    )
-    inputs = tokenizer(text, return_tensors="pt").to(model.device)
-    with torch.no_grad():
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=2048,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
-        )
-    new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
-    decoded = tokenizer.decode(new_tokens, skip_special_tokens=False)
-    # Remove trailing special tokens but keep <tool_call> tags
-    decoded = decoded.replace("<|im_end|>", "").replace("<|endoftext|>", "")
-    return decoded
-
-
-def parse_tool_calls(text: str) -> list[dict] | None:
-    """Parse Qwen-style tool calls from model output."""
-    calls = []
-    for match in re.finditer(
-        r"<tool_call>\s*(\{.*?\})\s*</tool_call>", text, re.DOTALL
-    ):
-        try:
-            call = json.loads(match.group(1))
-            calls.append(call)
-        except json.JSONDecodeError:
-            continue
-    return calls if calls else None
+    products: list[dict] = []
 
 
 # ---- Endpoint ----
@@ -173,48 +123,69 @@ async def search(req: SearchRequest):
             user_content = (
                 f"Previous conversation for context:\n{context}\n\n"
                 f"New question: {req.query}\n\n"
-                f"You MUST call search_products to answer this. Do NOT answer from the conversation above."
+                f"You MUST call search_products with a NEW query that combines the original search intent "
+                f"with any refinements from the new question. "
+                f"Do NOT answer from the conversation above — always search fresh. "
+                f"Format each product EXACTLY as: [![Title](image_url)](product_url) - $price"
             )
 
     messages.append({"role": "user", "content": user_content})
 
     all_tool_calls: list[dict] = []
+    all_products: list[dict] = []
     logger.info(f"Search request: query='{req.query}', max_iterations={req.max_iterations}")
 
     for iteration in range(1, req.max_iterations + 1):
         logger.info(f"--- Iteration {iteration} ---")
-        logger.info("Generating LLM response...")
-        raw = generate(messages)
-        tool_calls = parse_tool_calls(raw)
 
-        if not tool_calls:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=TOOLS,
+            tool_choice="auto",
+        )
+
+        message = response.choices[0].message
+        logger.info(f"=== LLM OUTPUT ===\ncontent: {message.content}\ntool_calls: {message.tool_calls}\n=== END ===")
+
+        if not message.tool_calls:
             logger.info(f"LLM gave final answer (iteration {iteration})")
+            answer = message.content or ""
+            shown_products = [p for p in all_products if p["title"] in answer]
+            logger.info(f"Products shown to customer: {len(shown_products)} out of {len(all_products)}")
             return SearchResponse(
-                answer=raw.strip(),
+                answer=answer,
                 tool_calls=all_tool_calls,
                 iterations=iteration,
+                products=shown_products,
             )
 
-        logger.info(f"LLM requested {len(tool_calls)} tool call(s)")
-        messages.append({"role": "assistant", "content": raw})
+        messages.append(message)
 
-        for tc in tool_calls:
-            fn_name = tc.get("name")
-            fn_args = tc.get("arguments", {})
+        for tc in message.tool_calls:
+            fn_name = tc.function.name
+            fn_args = json.loads(tc.function.arguments)
             logger.info(f"Calling tool: {fn_name}({fn_args})")
 
             all_tool_calls.append({"name": fn_name, "arguments": fn_args})
 
             result = TOOL_HANDLERS[fn_name](fn_args)
+            all_products.extend(
+                {"title": p["title"], "code": p["code"], "image_url": p["image_url"], "product_url": p["product_url"]}
+                for p in result
+            )
+            logger.info(f"=== TOOL RESULT ({fn_name}) ===\n{json.dumps(result, indent=2)}\n=== END TOOL RESULT ===")
 
             messages.append({
                 "role": "tool",
+                "tool_call_id": tc.id,
                 "content": json.dumps(result),
             })
 
     logger.info(f"Max iterations ({req.max_iterations}) reached")
     return SearchResponse(
-        answer=raw.strip() or "Max iterations reached without a final answer.",
+        answer="Max iterations reached without a final answer.",
         tool_calls=all_tool_calls,
         iterations=req.max_iterations,
+        products=all_products,
     )
