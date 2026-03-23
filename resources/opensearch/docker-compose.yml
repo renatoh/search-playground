@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  opensearch-node1:
+    image: opensearchproject/opensearch:3.3.2
+    container_name: opensearch-node1
+    command: >
+      bash -c "
+        /usr/share/opensearch/bin/opensearch-plugin remove opensearch-performance-analyzer >/dev/null 2>&1 || true;
+        /usr/share/opensearch/bin/opensearch-plugin install --batch opensearch-ml;
+        /usr/share/opensearch/opensearch-docker-entrypoint.sh
+      "
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+
+      # Required in 3.x – must be strong
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Str0ng!Passw0rd
+
+      # Disable demo security for dev (no TLS / auth hassle)
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+
+
+      # Memory
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g"
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    volumes:
+      - opensearch-data1:/usr/share/opensearch/data
+
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+
+    networks:
+      - opensearch-net
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.3.0
+    container_name: opensearch-dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch-node1:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch-node1
+    networks:
+      - opensearch-net
+
+volumes:
+  opensearch-data1:
+
+networks:
+  opensearch-net:
+    driver: bridge

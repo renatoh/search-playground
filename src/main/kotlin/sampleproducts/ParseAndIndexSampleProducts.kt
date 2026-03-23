@@ -29,10 +29,10 @@ data class Product(
 fun main() {
 
 
-    val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products_head.csv"
+    val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products.csv"
 
-    val start = 0 * 1000;
-    val limit = 150 * 1000
+    val start = 700 * 1000;
+    val limit = 900 * 1000
 
     val t1 = System.currentTimeMillis()
     var counter = 0
@@ -80,19 +80,33 @@ fun main() {
     }
 
     print("number of products: ${products.size}")
+       try {
+         val indexProducts = IndexProducts();
+        products.chunked(200).
+        forEach {
+            
+            try {
+                indexProducts.bulkIndexProducts(it)
+            } catch (e: Exception) {
+                println(it)
+                TODO("Not yet implemented")
+            }
+        }
+        indexProducts.bulkIndexProducts(products)
 
-    // index to OpenSearch
-//         val indexProducts = IndexProducts();
-//        products.chunked(200).forEach { indexProducts.bulkIndexProducts(it) }
-//        indexProducts.bulkIndexProducts(products)
+        val allProductCodes = products.map { it.categoryId_i }.toSet()
+        println(allProductCodes)
+           
+       } catch (e: Exception) {
+           println(e)
+           
+       }
+//     index to OpenSearch
+
 //
-//        val allProductCodes = products.map { it.categoryId_i }.toSet()
-//        println(allProductCodes)
-
-
     val indexer = SolrIndexProducts();
     val timeTaken = indexer.indexProducts(products, "products-head-original")
-    println("adding docs to solr took:${timeTaken}")
+//    println("adding docs to solr took:${timeTaken}")
 }
 
 
