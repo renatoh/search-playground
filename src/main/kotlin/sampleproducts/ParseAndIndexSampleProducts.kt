@@ -38,8 +38,8 @@ fun main() {
 
     val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products.csv"
 
-    val start = 0;
-    val limit = 25 * 1000
+    val start =  150 * 1000;
+    val limit = 200 * 1000
 
     val t1 = System.currentTimeMillis()
     var counter = 0
@@ -84,13 +84,13 @@ fun main() {
             counter++
 
         }
-    }
+    }                                 
 
     print("number of products: ${products.size}")
        try {
          val indexProducts = IndexProducts();
-        products.chunked(200).
-        forEach {
+//        products.chunked(500).
+//        forEach {
             
             try {
 
@@ -99,14 +99,14 @@ fun main() {
                     val timeTaken = indexer.indexProducts(products, "products")
 
                 } else {
-                    indexProducts.bulkIndexProducts(it)
+                    indexProducts.bulkIndexProducts(products)
                 }
             } catch (e: Exception) {
                 print(e.stackTraceToString())
-                println(it)
+                println(products)
                 TODO("Not yet implemented")
             }
-        }
+//        }
 
         val allProductCodes = products.map { it.categoryId_i }.toSet()
         println(allProductCodes)
