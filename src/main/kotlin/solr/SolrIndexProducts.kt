@@ -13,7 +13,7 @@ class SolrIndexProducts {
     
      fun indexProducts(products: MutableList<Product>, collectionName : String): Duration {
         val solrUrl = "http://linux:8983/solr/"
-        val pool = ForkJoinPool(24)
+        val pool = ForkJoinPool(40)
         val solrDocs = products.map { createSolrDocForProduct(it) }
         val solrClient: SolrClient = Http2SolrClient.Builder(solrUrl)
             .build()
@@ -21,10 +21,9 @@ class SolrIndexProducts {
     
         val timeTaken = measureTime {
             val taks = pool.submit {
-                solrDocs.chunked(500).parallelStream()
+                solrDocs.chunked(100).parallelStream()
                     .forEach { addDocsToSolr(solrClient, it, collectionName) }
             }
-            taks.join()
     
         }
         return timeTaken

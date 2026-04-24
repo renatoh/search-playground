@@ -1,6 +1,7 @@
 package opensearch.integration
 
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.apache.hc.core5.http.HttpHost
@@ -24,9 +25,11 @@ class OpenSearchIntegration {
         val ats: Int
     )
     
-    val mapper = ObjectMapper().registerKotlinModule()
+    val mapper = ObjectMapper()
+        .registerKotlinModule()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     val jacksonJsonpMapper = JacksonJsonpMapper(mapper)
-    
+
     val builder = ApacheHttpClient5TransportBuilder
         .builder(HttpHost("http", "localhost", 9200))
         .setMapper(jacksonJsonpMapper)

@@ -136,7 +136,7 @@ fun main() {
     }.start(wait = true)
 }
 
-private val chatImagePattern = Regex("""\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)""")
+private val chatImagePattern = Regex("""\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)(?:\s*-\s*\$[\d.]+)?""")
 
 // Matches numbered product list entries in various formats:
 // "1. **BBQ Grill**:\n- - $39.99"  or  "1. - $39.99"  or  "1. BBQ Grill - $39.99"

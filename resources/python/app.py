@@ -10,7 +10,7 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o")
+MODEL_NAME = os.getenv("MODEL_NAME", "o4-mini")
 SOLR_URL = os.getenv("SOLR_URL", "http://linux:8983/solr")
 SOLR_COLLECTION = os.getenv("SOLR_COLLECTION", "products")
 
@@ -101,7 +101,10 @@ async def search(req: SearchRequest):
             "content": (
                 "You are a helpful product-search assistant. "
                 "You MUST ALWAYS call the search_products tool to find products. NEVER answer without searching first. "
-                "After gathering results, respond with a final answer listing the most relevant products (pick the top 5-10). "
+                "After getting results, evaluate if they are relevant to the user's query. "
+                "If the results are not relevant or too few, call search_products again with a refined or alternative query. "
+                "Only respond with a final answer once you have relevant results or have exhausted your search attempts. "
+                "List the most relevant products (pick the top 5-10). "
                 "For each product you MUST use the EXACT image_url and product_url from the search results. "
                 "NEVER make up or modify URLs. Copy them exactly as returned by the tool. "
                 "Format each product as:\n"
@@ -110,26 +113,10 @@ async def search(req: SearchRequest):
         },
     ]
 
-    user_content = req.query
-    if req.history:
-        context_lines = []
-        for msg in req.history:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            if role in ("user", "assistant"):
-                context_lines.append(f"{role}: {content}")
-        if context_lines:
-            context = "\n".join(context_lines)
-            user_content = (
-                f"Previous conversation for context:\n{context}\n\n"
-                f"New question: {req.query}\n\n"
-                f"You MUST call search_products with a NEW query that combines the original search intent "
-                f"with any refinements from the new question. "
-                f"Do NOT answer from the conversation above — always search fresh. "
-                f"Format each product EXACTLY as: [![Title](image_url)](product_url) - $price"
-            )
+    if req.history:                               
+        messages.extend(req.history)
 
-    messages.append({"role": "user", "content": user_content})
+    messages.append({"role": "user", "content": req.query})
 
     all_tool_calls: list[dict] = []
     all_products: list[dict] = []
@@ -143,6 +130,7 @@ async def search(req: SearchRequest):
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
+            reasoning_effort="medium",
         )
 
         message = response.choices[0].message
@@ -174,7 +162,7 @@ async def search(req: SearchRequest):
                 {"title": p["title"], "code": p["code"], "image_url": p["image_url"], "product_url": p["product_url"]}
                 for p in result
             )
-            logger.info(f"=== TOOL RESULT ({fn_name}) ===\n{json.dumps(result, indent=2)}\n=== END TOOL RESULT ===")
+            # logger.info(f"=== TOOL RESULT ({fn_name}) ===\n{json.dumps(result, indent=2)}\n=== END TOOL RESULT ===")
 
             messages.append({
                 "role": "tool",
@@ -182,10 +170,19 @@ async def search(req: SearchRequest):
                 "content": json.dumps(result),
             })
 
-    logger.info(f"Max iterations ({req.max_iterations}) reached")
+    logger.info(f"Max iterations ({req.max_iterations}) reached, forcing final answer")
+    final_response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="none",
+        reasoning_effort="medium",
+    )
+    answer = final_response.choices[0].message.content or ""
+    shown_products = [p for p in all_products if p["title"] in answer]
     return SearchResponse(
-        answer="Max iterations reached without a final answer.",
+        answer=answer,
         tool_calls=all_tool_calls,
         iterations=req.max_iterations,
-        products=all_products,
+        products=shown_products,
     )

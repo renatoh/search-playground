@@ -26,13 +26,20 @@ data class Product(
     var score: Float? = null
 )
 
+enum class SearchBackend {
+    SOLR, OPENSEARCH
+}
+
+
+
 fun main() {
 
+    val activeSearch = SearchBackend.SOLR
 
     val pathToProductCSv = "/Users/renato/solr/sample_data/amazon_products.csv"
 
-    val start = 700 * 1000;
-    val limit = 900 * 1000
+    val start = 0;
+    val limit = 25 * 1000
 
     val t1 = System.currentTimeMillis()
     var counter = 0
@@ -86,13 +93,20 @@ fun main() {
         forEach {
             
             try {
-                indexProducts.bulkIndexProducts(it)
+
+                if (activeSearch == SearchBackend.SOLR) {
+                    val indexer = SolrIndexProducts();
+                    val timeTaken = indexer.indexProducts(products, "products")
+
+                } else {
+                    indexProducts.bulkIndexProducts(it)
+                }
             } catch (e: Exception) {
+                print(e.stackTraceToString())
                 println(it)
                 TODO("Not yet implemented")
             }
         }
-        indexProducts.bulkIndexProducts(products)
 
         val allProductCodes = products.map { it.categoryId_i }.toSet()
         println(allProductCodes)
